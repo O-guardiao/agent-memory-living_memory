@@ -1,0 +1,3 @@
+- name: preference_ptbr
+  input: "Eu prefiro Go para o core de produção."
+  expected_type: preference

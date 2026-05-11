@@ -1,0 +1,7 @@
+DROP INDEX IF EXISTS idx_retrieval_traces_tenant_latency_created;
+DROP INDEX IF EXISTS idx_retrieval_traces_tenant_user_created;
+DROP INDEX IF EXISTS idx_memories_tenant_status_created;
+DROP INDEX IF EXISTS idx_memories_tenant_project_status_type_valid;
+DROP INDEX IF EXISTS idx_memories_tenant_user_project_status_type_updated;
+DROP INDEX IF EXISTS idx_events_tenant_session_created;
+DROP INDEX IF EXISTS idx_events_tenant_user_project_created;

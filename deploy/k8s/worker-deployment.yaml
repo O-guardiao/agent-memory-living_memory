@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: memory-worker }
+  template:
+    metadata:
+      labels: { app: memory-worker }
+    spec:
+      containers:
+        - name: memory-worker
+          image: agent-memory/memory-worker:latest

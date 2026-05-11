@@ -1,0 +1,263 @@
+openapi: 3.0.3
+info:
+  title: Agent Memory API
+  version: 1.0.0
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /v1/events:
+    post:
+      summary: Ingest a raw agent/user/tool event and distill memories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventIngestRequest'
+      responses:
+        '201':
+          description: Created
+  /v1/memories/search:
+    post:
+      summary: Search memories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrievalQuery'
+      responses:
+        '200':
+          description: Search result
+  /v1/context/assemble:
+    post:
+      summary: Assemble context pack for an LLM agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrievalQuery'
+      responses:
+        '200':
+          description: Context pack
+  /v1/memories/{memory_id}:
+    get:
+      summary: Get memory
+      parameters:
+        - name: memory_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Memory }
+    delete:
+      summary: Delete memory
+      parameters:
+        - name: memory_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Deletion receipt }
+
+  /v1/agentic/skills:
+    get:
+      summary: List built-in agentic skill cards
+      responses:
+        '200': { description: Skill catalog }
+  /v1/agentic/decide:
+    post:
+      summary: Decide whether a task should answer, research, specify, plan, execute, or verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionRequest'
+      responses:
+        '200': { description: Decision advice }
+  /v1/agentic/specs:
+    post:
+      summary: Create a compact SPEC artifact stored as durable memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpecRequest'
+      responses:
+        '201': { description: Created spec }
+  /v1/agentic/specs/{spec_id}:
+    get:
+      summary: Get a SPEC artifact
+      parameters:
+        - name: spec_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Spec artifact }
+  /v1/agentic/plans:
+    post:
+      summary: Create a PLAN artifact stored as durable memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+      responses:
+        '201': { description: Created plan }
+  /v1/agentic/plans/{plan_id}:
+    get:
+      summary: Get a PLAN artifact
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Plan artifact }
+  /v1/agentic/context:
+    post:
+      summary: Assemble compact control context for spec-driven agent execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlRequest'
+      responses:
+        '200': { description: Control context }
+  /v1/traces/{trace_id}:
+    get:
+      summary: Get retrieval trace
+      parameters:
+        - name: trace_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Trace }
+components:
+  schemas:
+    EventIngestRequest:
+      type: object
+      required: [tenant_id, user_id, role]
+      properties:
+        tenant_id: { type: string }
+        user_id: { type: string }
+        agent_id: { type: string }
+        session_id: { type: string }
+        project_id: { type: string }
+        role: { type: string, enum: [user, assistant, system, tool] }
+        content: { type: string }
+        tool_name: { type: string }
+        tool_result: { type: string }
+        metadata: { type: object }
+    RetrievalQuery:
+      type: object
+      required: [tenant_id, user_id, query]
+      properties:
+        tenant_id: { type: string }
+        user_id: { type: string }
+        agent_id: { type: string }
+        project_id: { type: string }
+        session_id: { type: string }
+        query: { type: string }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        filters:
+          type: object
+          additionalProperties: { type: string }
+
+    ScopeFields:
+      type: object
+      properties:
+        tenant_id: { type: string }
+        user_id: { type: string }
+        agent_id: { type: string }
+        project_id: { type: string }
+        session_id: { type: string }
+    DecisionRequest:
+      allOf:
+        - $ref: '#/components/schemas/ScopeFields'
+        - type: object
+          required: [task]
+          properties:
+            task: { type: string }
+            phase: { type: string, enum: [triage, specify, research, plan, execute, verify, recover] }
+            risk: { type: string, enum: [low, medium, high, critical] }
+            token_budget: { type: integer }
+            has_approved_spec: { type: boolean }
+            has_plan: { type: boolean }
+            has_evidence: { type: boolean }
+            user_asked_for_code: { type: boolean }
+    SpecRequest:
+      allOf:
+        - $ref: '#/components/schemas/ScopeFields'
+        - type: object
+          required: [title, goal]
+          properties:
+            title: { type: string }
+            goal: { type: string }
+            background: { type: string }
+            constraints: { type: array, items: { type: string } }
+            acceptance_criteria: { type: array, items: { type: string } }
+            non_goals: { type: array, items: { type: string } }
+            risks: { type: array, items: { type: string } }
+            evidence: { type: array, items: { type: string } }
+    PlanStep:
+      type: object
+      required: [title, description]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        files: { type: array, items: { type: string } }
+        verification: { type: array, items: { type: string } }
+        expected_evidence: { type: array, items: { type: string } }
+        status: { type: string }
+    PlanRequest:
+      allOf:
+        - $ref: '#/components/schemas/ScopeFields'
+        - type: object
+          required: [title, objective, steps]
+          properties:
+            spec_id: { type: string }
+            title: { type: string }
+            objective: { type: string }
+            steps: { type: array, items: { $ref: '#/components/schemas/PlanStep' } }
+            checkpoints: { type: array, items: { type: string } }
+            token_budget: { type: integer }
+            risk: { type: string, enum: [low, medium, high, critical] }
+            evidence_refs: { type: array, items: { type: string } }
+    ControlRequest:
+      allOf:
+        - $ref: '#/components/schemas/ScopeFields'
+        - type: object
+          required: [query]
+          properties:
+            query: { type: string }
+            token_budget: { type: integer }
+            spec_id: { type: string }
+            plan_id: { type: string }

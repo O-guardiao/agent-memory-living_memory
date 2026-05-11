@@ -1,0 +1,5 @@
+- name: changed_preference
+  events:
+    - "Eu prefiro Python para backend."
+    - "Na verdade, para produção eu prefiro Go."
+  expected_relation: supersedes

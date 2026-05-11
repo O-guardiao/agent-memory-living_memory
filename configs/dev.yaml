@@ -1,0 +1,6 @@
+env: dev
+port: "8080"
+storage:
+  mode: memory
+retrieval:
+  default_limit: 8

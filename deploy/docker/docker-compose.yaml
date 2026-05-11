@@ -1,0 +1,81 @@
+services:
+  memory-migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.migrate
+    environment:
+      MEMORY_STORAGE_MODE: postgres_qdrant_neo4j
+      MEMORY_POSTGRES_DSN: ${MEMORY_POSTGRES_DSN:-postgres://memory:change-me-local@postgres:5432/memory?sslmode=disable}
+      MEMORY_NEO4J_ENDPOINT: http://neo4j:7474
+      MEMORY_NEO4J_DATABASE: neo4j
+    depends_on:
+      - postgres
+      - neo4j
+
+  memory-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.api
+    environment:
+      MEMORY_PORT: "8080"
+      MEMORY_ENV: local
+      MEMORY_STORAGE_MODE: postgres_qdrant_neo4j
+      MEMORY_INGESTION_MODE: async
+      MEMORY_POSTGRES_DSN: ${MEMORY_POSTGRES_DSN:-postgres://memory:change-me-local@postgres:5432/memory?sslmode=disable}
+      MEMORY_QDRANT_ENDPOINT: http://qdrant:6333
+      MEMORY_QDRANT_COLLECTION: agent_memory
+      MEMORY_QDRANT_VECTOR_SIZE: "64"
+      MEMORY_NEO4J_ENDPOINT: http://neo4j:7474
+      MEMORY_NEO4J_DATABASE: neo4j
+    ports:
+      - "8080:8080"
+    depends_on:
+      memory-migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+      neo4j:
+        condition: service_started
+
+  memory-worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.worker
+    environment:
+      MEMORY_ENV: local
+      MEMORY_STORAGE_MODE: postgres_qdrant_neo4j
+      MEMORY_POSTGRES_DSN: ${MEMORY_POSTGRES_DSN:-postgres://memory:change-me-local@postgres:5432/memory?sslmode=disable}
+      MEMORY_QDRANT_ENDPOINT: http://qdrant:6333
+      MEMORY_QDRANT_COLLECTION: agent_memory
+      MEMORY_QDRANT_VECTOR_SIZE: "64"
+      MEMORY_NEO4J_ENDPOINT: http://neo4j:7474
+      MEMORY_NEO4J_DATABASE: neo4j
+    depends_on:
+      memory-migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+      neo4j:
+        condition: service_started
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: memory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local}
+      POSTGRES_DB: memory
+    ports:
+      - "5432:5432"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+
+  neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH:-none}
+    ports:
+      - "7474:7474"
+      - "7687:7687"

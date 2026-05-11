@@ -1,0 +1,10 @@
+FROM golang:1.22 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/memory-worker ./cmd/memory-worker
+
+FROM gcr.io/distroless/static-debian12
+COPY --from=build /out/memory-worker /memory-worker
+ENTRYPOINT ["/memory-worker"]

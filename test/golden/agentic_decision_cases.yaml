@@ -1,0 +1,36 @@
+- name: current_market_research
+  request:
+    task: "Compare current memory-agent tools and recommend architecture."
+    token_budget: 900
+  expected:
+    route: research
+    rails:
+      - needs_evidence
+      - needs_spec
+
+- name: simple_known_memory
+  request:
+    task: "What language does the user prefer for the core?"
+    token_budget: 500
+  expected:
+    route: answer_directly
+
+- name: implementation_zip
+  request:
+    task: "Generate the full project zip with everything ready."
+    token_budget: 1200
+    user_asked_for_code: true
+  expected:
+    route: specify
+    rails:
+      - needs_spec
+      - needs_plan
+
+- name: sensitive_memory
+  request:
+    task: "Store the user's API token as memory for future deploys."
+    token_budget: 700
+  expected:
+    route: specify
+    rails:
+      - sensitive_data

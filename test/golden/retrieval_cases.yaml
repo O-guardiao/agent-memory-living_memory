@@ -1,0 +1,3 @@
+- name: retrieve_language_preference
+  query: "qual linguagem prefere para core?"
+  expected_contains: "Go"

@@ -1,0 +1,177 @@
+syntax = "proto3";
+
+package memory.v1;
+
+option go_package = "github.com/agent-memory/agent-memory/api/proto/memory/v1;memoryv1";
+
+service MemoryService {
+  rpc IngestEvent(IngestEventRequest) returns (IngestEventResponse);
+  rpc SearchMemories(SearchMemoriesRequest) returns (SearchMemoriesResponse);
+  rpc AssembleContext(AssembleContextRequest) returns (AssembleContextResponse);
+  rpc DecideAgenticRoute(DecisionRequest) returns (DecisionAdvice);
+  rpc CreateSpec(SpecRequest) returns (SpecArtifact);
+  rpc CreatePlan(PlanRequest) returns (PlanArtifact);
+  rpc AssembleAgenticContext(ControlRequest) returns (ControlContext);
+}
+
+message IngestEventRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+  string agent_id = 3;
+  string session_id = 4;
+  string role = 5;
+  string content = 6;
+}
+
+message IngestEventResponse {
+  string event_id = 1;
+  repeated string memory_ids = 2;
+}
+
+message SearchMemoriesRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+  string query = 3;
+  int32 limit = 4;
+}
+
+message SearchMemoriesResponse {
+  repeated string memory_ids = 1;
+  string trace_id = 2;
+}
+
+message AssembleContextRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+  string query = 3;
+  int32 limit = 4;
+}
+
+message AssembleContextResponse {
+  string trace_id = 1;
+  string context_json = 2;
+  string control_context_json = 3;
+}
+
+message ScopeFields {
+  string tenant_id = 1;
+  string user_id = 2;
+  string agent_id = 3;
+  string project_id = 4;
+  string session_id = 5;
+}
+
+message DecisionRequest {
+  ScopeFields scope = 1;
+  string task = 2;
+  string phase = 3;
+  string risk = 4;
+  int32 token_budget = 5;
+  bool has_approved_spec = 6;
+  bool has_plan = 7;
+  bool has_evidence = 8;
+  bool user_asked_for_code = 9;
+}
+
+message RailFinding {
+  string code = 1;
+  string severity = 2;
+  string message = 3;
+  string action = 4;
+  int32 token_cost = 5;
+  double confidence = 6;
+}
+
+message SkillCard {
+  string name = 1;
+  string description = 2;
+  repeated string use_when = 3;
+  repeated string inputs = 4;
+  repeated string outputs = 5;
+  int32 token_overhead = 6;
+  string default_phase = 7;
+}
+
+message DecisionAdvice {
+  string route = 1;
+  string reason = 2;
+  string risk = 3;
+  string horizon = 4;
+  repeated SkillCard recommended_skills = 5;
+  repeated RailFinding rails = 6;
+  repeated string required_actions = 7;
+  int32 context_budget = 8;
+  bool should_write_spec = 9;
+  bool should_research = 10;
+  bool should_execute = 11;
+  bool should_verify = 12;
+}
+
+message SpecRequest {
+  ScopeFields scope = 1;
+  string title = 2;
+  string goal = 3;
+  string background = 4;
+  repeated string constraints = 5;
+  repeated string acceptance_criteria = 6;
+  repeated string non_goals = 7;
+  repeated string risks = 8;
+  repeated string evidence = 9;
+}
+
+message SpecArtifact {
+  string id = 1;
+  string title = 2;
+  string goal = 3;
+  string summary = 4;
+  string artifact_json = 5;
+}
+
+message PlanStep {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  repeated string files = 4;
+  repeated string verification = 5;
+  repeated string expected_evidence = 6;
+  string status = 7;
+}
+
+message PlanRequest {
+  ScopeFields scope = 1;
+  string spec_id = 2;
+  string title = 3;
+  string objective = 4;
+  repeated PlanStep steps = 5;
+  repeated string checkpoints = 6;
+  int32 token_budget = 7;
+  string risk = 8;
+  repeated string evidence_refs = 9;
+}
+
+message PlanArtifact {
+  string id = 1;
+  string spec_id = 2;
+  string title = 3;
+  string objective = 4;
+  string summary = 5;
+  string artifact_json = 6;
+}
+
+message ControlRequest {
+  ScopeFields scope = 1;
+  string query = 2;
+  int32 token_budget = 3;
+  string spec_id = 4;
+  string plan_id = 5;
+}
+
+message ControlContext {
+  string active_spec_json = 1;
+  string active_plan_json = 2;
+  string current_step_json = 3;
+  repeated SkillCard recommended_skills = 4;
+  repeated RailFinding rails = 5;
+  repeated string instructions = 6;
+  int32 token_estimate = 7;
+}

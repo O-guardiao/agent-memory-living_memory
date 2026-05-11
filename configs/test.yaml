@@ -1,0 +1,4 @@
+env: test
+port: "0"
+storage:
+  mode: memory

@@ -1,0 +1,6 @@
+image:
+  repository: agent-memory/memory-api
+  tag: latest
+replicaCount: 2
+service:
+  port: 80

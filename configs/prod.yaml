@@ -1,0 +1,14 @@
+env: prod
+port: "8080"
+storage:
+  mode: postgres_qdrant_neo4j
+  ingestion_mode_env: MEMORY_INGESTION_MODE
+  postgres_dsn_env: MEMORY_POSTGRES_DSN
+  qdrant_endpoint_env: MEMORY_QDRANT_ENDPOINT
+  qdrant_collection_env: MEMORY_QDRANT_COLLECTION
+  qdrant_vector_size_env: MEMORY_QDRANT_VECTOR_SIZE
+  neo4j_endpoint_env: MEMORY_NEO4J_ENDPOINT
+  neo4j_database_env: MEMORY_NEO4J_DATABASE
+  neo4j_basic_auth_env: MEMORY_NEO4J_BASIC_AUTH
+security:
+  require_auth: true
