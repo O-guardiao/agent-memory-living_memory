@@ -15,6 +15,58 @@ Excluded from this public copy:
 - Generated validation reports.
 - Reference folders copied from other local experiments.
 
+## Installation
+
+The engine is standard-library only (Python 3.11+). Install editable for
+development:
+
+```bash
+pip install -e .
+```
+
+Or run directly from the tree by adding `src` to `PYTHONPATH` — the MCP
+entry point (`scripts/run_mcp_server.py`) does this automatically.
+
+## Module map
+
+All modules live under `src/living_memoryv2/`:
+
+| Module | Purpose |
+| --- | --- |
+| `schema` | Canonical `MemoryEnvelope` and `ModalityRef` types. |
+| `store` | Temporal store (SQLite-backed) for envelopes. |
+| `graph` | Relation graph store and traversal. |
+| `knowledge` | Knowledge graph extraction and queries. |
+| `mobius` | Mobius index for associative recall. |
+| `sif`, `context` | SIF/context assembly (v1 and v2). |
+| `governance`, `lifecycle` | Retention, scope, and lifecycle policies. |
+| `vault` | Vault boxes for protected payloads. |
+| `agents` | Proposal flow between agents. |
+| `task_state` | Durable task state tracking. |
+| `recall`, `scoring`, `answerability`, `calibration` | Retrieval, ranking, and abstention. |
+| `ingest`, `extraction`, `connectors`, `facts`, `consolidation`, `engram`, `tool_curriculum` | Capture and distillation flows. |
+| `mcp_server` | MCP facade exposing 31 tools (`LivingMemoryTools`). |
+| `benchmarks`, `benchmarks_external` | Local validation and replay suites. |
+
+## MCP server
+
+```bash
+python scripts/run_mcp_server.py
+```
+
+The facade registers tools such as `living_memory`, `remember_text`,
+`recall_context`, `inspect_memory`, `query_graph`, and `add_relation`.
+
+## Benchmarks
+
+```bash
+python -c "import sys; sys.path.insert(0, 'src'); from living_memoryv2 import benchmarks; print(benchmarks.run_local_validation())"
+python -c "import sys; sys.path.insert(0, 'src'); from living_memoryv2 import benchmarks; print(benchmarks.run_hard_validation())"
+```
+
+The replay suites resolve repository documents relative to the workspace
+root, marked by `AGENTS.md` at the repository top level.
+
 Run tests:
 
 ```powershell
