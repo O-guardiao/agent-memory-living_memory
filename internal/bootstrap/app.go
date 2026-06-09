@@ -30,10 +30,12 @@ import (
 type App struct {
 	HTTPServer *httpadapter.Server
 	Worker     *ingestion.AsyncService
+	Shutdown   *Shutdown
 }
 
 func NewApp(cfg config.Config) *App {
-	stores := storesFor(cfg)
+	shutdown := NewShutdown()
+	stores := storesFor(cfg, shutdown)
 
 	idgen := system.NewIDGenerator()
 	clock := system.RealClock{}
@@ -81,9 +83,10 @@ func NewApp(cfg config.Config) *App {
 		Memories:       stores.memories,
 		Traces:         stores.traces,
 		Config:         cfg,
+		Limiter:        limiterFor(cfg),
 	})
 
-	return &App{HTTPServer: server, Worker: asyncIngestSvc}
+	return &App{HTTPServer: server, Worker: asyncIngestSvc, Shutdown: shutdown}
 }
 
 type storeBundle struct {
@@ -95,11 +98,14 @@ type storeBundle struct {
 	queue    ports.Queue
 }
 
-func storesFor(cfg config.Config) storeBundle {
+func storesFor(cfg config.Config, shutdown *Shutdown) storeBundle {
 	if cfg.StorageMode == "postgres_qdrant_neo4j" && cfg.PostgresDSN != "" {
 		db, err := postgresstore.Open(cfg.PostgresDSN)
 		if err != nil {
 			panic(err)
+		}
+		if shutdown != nil {
+			shutdown.Register("postgres", func(context.Context) error { return db.Close() })
 		}
 		vectors := qdrantstore.NewVectorStore(cfg.QdrantEndpoint, cfg.QdrantCollection, nil)
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

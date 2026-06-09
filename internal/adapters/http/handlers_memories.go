@@ -13,9 +13,10 @@ func (s *Server) handleMemoryByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errNotFound)
 		return
 	}
-	tenantID := r.URL.Query().Get("tenant_id")
-	if tenantID == "" {
-		tenantID = s.deps.Config.DefaultTenant
+	tenantID, err := s.tenantFor(r, r.URL.Query().Get("tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
 	}
 
 	switch r.Method {

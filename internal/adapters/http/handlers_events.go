@@ -16,9 +16,12 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if req.TenantID == "" {
-		req.TenantID = s.deps.Config.DefaultTenant
+	tenantID, err := s.tenantFor(r, req.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
 	}
+	req.TenantID = tenantID
 	if s.deps.Config.IngestionMode == "async" {
 		if s.deps.AsyncIngestion == nil {
 			writeError(w, http.StatusServiceUnavailable, errServiceUnavailable)

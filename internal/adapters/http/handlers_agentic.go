@@ -33,7 +33,12 @@ func (s *Server) handleAgenticDecide(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	req.TenantID = s.defaultTenant(req.TenantID)
+	tenantID, err := s.tenantFor(r, req.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	req.TenantID = tenantID
 	advice, err := s.deps.Agentic.Decide(r.Context(), req)
 	if err != nil {
 		writeError(w, statusForError(err), err)
@@ -56,7 +61,12 @@ func (s *Server) handleAgenticContext(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	req.TenantID = s.defaultTenant(req.TenantID)
+	tenantID, err := s.tenantFor(r, req.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	req.TenantID = tenantID
 	control, err := s.deps.Agentic.AssembleControlContext(r.Context(), req)
 	if err != nil {
 		writeError(w, statusForError(err), err)
@@ -83,7 +93,12 @@ func (s *Server) handleAgenticSpecs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	req.TenantID = s.defaultTenant(req.TenantID)
+	tenantID, err := s.tenantFor(r, req.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	req.TenantID = tenantID
 	spec, err := s.deps.Agentic.CreateSpec(r.Context(), req)
 	if err != nil {
 		writeError(w, statusForError(err), err)
@@ -110,7 +125,12 @@ func (s *Server) handleAgenticPlans(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	req.TenantID = s.defaultTenant(req.TenantID)
+	tenantID, err := s.tenantFor(r, req.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	req.TenantID = tenantID
 	plan, err := s.deps.Agentic.CreatePlan(r.Context(), req)
 	if err != nil {
 		writeError(w, statusForError(err), err)
@@ -129,7 +149,12 @@ func (s *Server) handleAgenticSpecByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errNotFound)
 		return
 	}
-	scope := scopeFromQuery(r, s.defaultTenant(r.URL.Query().Get("tenant_id")))
+	tenantID, err := s.tenantFor(r, r.URL.Query().Get("tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	scope := scopeFromQuery(r, tenantID)
 	spec, err := s.deps.Agentic.GetSpec(r.Context(), scope, id)
 	if err != nil {
 		writeError(w, statusForError(err), err)
@@ -148,7 +173,12 @@ func (s *Server) handleAgenticPlanByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errNotFound)
 		return
 	}
-	scope := scopeFromQuery(r, s.defaultTenant(r.URL.Query().Get("tenant_id")))
+	tenantID, err := s.tenantFor(r, r.URL.Query().Get("tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	scope := scopeFromQuery(r, tenantID)
 	plan, err := s.deps.Agentic.GetPlan(r.Context(), scope, id)
 	if err != nil {
 		writeError(w, statusForError(err), err)

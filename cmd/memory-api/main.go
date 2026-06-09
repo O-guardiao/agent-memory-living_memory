@@ -40,4 +40,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("graceful shutdown failed: %v", err)
 	}
+	if err := app.Shutdown.Run(ctx); err != nil {
+		log.Printf("shutdown hooks failed: %v", err)
+	}
 }

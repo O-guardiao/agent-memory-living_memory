@@ -15,9 +15,10 @@ func (s *Server) handleTraceByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errNotFound)
 		return
 	}
-	tenantID := r.URL.Query().Get("tenant_id")
-	if tenantID == "" {
-		tenantID = s.deps.Config.DefaultTenant
+	tenantID, err := s.tenantFor(r, r.URL.Query().Get("tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
 	}
 	trace, err := s.deps.Traces.GetTrace(r.Context(), tenantID, id)
 	if err != nil {

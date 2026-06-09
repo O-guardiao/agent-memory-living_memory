@@ -16,9 +16,12 @@ func (s *Server) handleContextAssemble(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if q.TenantID == "" {
-		q.TenantID = s.deps.Config.DefaultTenant
+	tenantID, err := s.tenantFor(r, q.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
 	}
+	q.TenantID = tenantID
 	pack, err := s.deps.Context.Assemble(r.Context(), q)
 	if err != nil {
 		writeError(w, statusForError(err), err)

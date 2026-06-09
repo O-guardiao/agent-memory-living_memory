@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/agent-memory/agent-memory/internal/adapters/http/middleware"
 	"github.com/agent-memory/agent-memory/internal/config"
 	"github.com/agent-memory/agent-memory/internal/domain/memory"
 	"github.com/agent-memory/agent-memory/internal/ports"
@@ -25,6 +26,7 @@ type Dependencies struct {
 	Memories       ports.MemoryStore
 	Traces         ports.TraceStore
 	Config         config.Config
+	Limiter        middleware.RateLimiter
 }
 
 type Server struct {
