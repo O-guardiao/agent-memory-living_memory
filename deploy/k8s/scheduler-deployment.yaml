@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: memory-scheduler }
+  template:
+    metadata:
+      labels: { app: memory-scheduler }
+    spec:
+      containers:
+        - name: memory-scheduler
+          image: agent-memory/memory-scheduler:latest

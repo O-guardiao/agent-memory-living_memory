@@ -58,6 +58,55 @@ services:
       neo4j:
         condition: service_started
 
+  memory-scheduler:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.scheduler
+    environment:
+      MEMORY_ENV: local
+      MEMORY_STORAGE_MODE: postgres_qdrant_neo4j
+      MEMORY_POSTGRES_DSN: ${MEMORY_POSTGRES_DSN:-postgres://memory:change-me-local@postgres:5432/memory?sslmode=disable}
+      MEMORY_QDRANT_ENDPOINT: http://qdrant:6333
+      MEMORY_QDRANT_COLLECTION: agent_memory
+      MEMORY_QDRANT_VECTOR_SIZE: "64"
+      MEMORY_NEO4J_ENDPOINT: http://neo4j:7474
+      MEMORY_NEO4J_DATABASE: neo4j
+    depends_on:
+      memory-migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+      neo4j:
+        condition: service_started
+
+  redis:
+    image: redis:7
+    profiles: ["redis"]
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["minio"]
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-local}
+    ports:
+      - "9000:9000"
+
+  nats:
+    image: nats:2
+    profiles: ["nats"]
+    ports:
+      - "4222:4222"
+
+  kafka:
+    image: apache/kafka:latest
+    profiles: ["kafka"]
+    ports:
+      - "9092:9092"
+
   postgres:
     image: postgres:16
     environment:

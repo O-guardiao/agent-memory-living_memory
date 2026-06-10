@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -124,6 +125,8 @@ type storeBundle struct {
 	traces   ports.TraceStore
 	graph    ports.GraphStore
 	queue    ports.Queue
+	// db is set in postgres mode for maintenance jobs (nil otherwise).
+	db *sql.DB
 }
 
 func storesFor(cfg config.Config, shutdown *Shutdown) storeBundle {
@@ -152,6 +155,7 @@ func storesFor(cfg config.Config, shutdown *Shutdown) storeBundle {
 			traces:   postgresstore.NewTraceStore(db),
 			graph:    graph,
 			queue:    postgresqueue.New(db),
+			db:       db,
 		}
 	}
 	return storeBundle{

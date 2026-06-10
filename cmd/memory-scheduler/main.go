@@ -1,7 +1,34 @@
 package main
 
-import "log"
+import (
+	"context"
+	"errors"
+	"log"
+	"syscall"
+	"time"
+
+	"os/signal"
+
+	"github.com/agent-memory/agent-memory/internal/bootstrap"
+	"github.com/agent-memory/agent-memory/internal/config"
+)
 
 func main() {
-	log.Println("memory-scheduler placeholder: wire retention, reindexing and periodic compaction jobs here.")
+	// Wires retention, reindexing and periodic compaction jobs.
+	cfg := config.Load()
+	app := bootstrap.NewSchedulerApp(cfg)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	log.Printf("memory-scheduler running retention/reindex/compaction jobs in %s mode", cfg.StorageMode)
+	if err := app.Runner.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+		log.Fatalf("scheduler failed: %v", err)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := app.Shutdown.Run(shutdownCtx); err != nil {
+		log.Printf("shutdown hooks failed: %v", err)
+	}
 }
