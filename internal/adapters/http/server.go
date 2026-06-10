@@ -13,6 +13,7 @@ import (
 	contextsvc "github.com/agent-memory/agent-memory/internal/services/context"
 	"github.com/agent-memory/agent-memory/internal/services/evaluation"
 	"github.com/agent-memory/agent-memory/internal/services/forgetting"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 	"github.com/agent-memory/agent-memory/internal/services/ingestion"
 	retrievalsvc "github.com/agent-memory/agent-memory/internal/services/retrieval"
 )
@@ -30,6 +31,7 @@ type Dependencies struct {
 	Limiter        middleware.RateLimiter
 	Evaluation     *evaluation.Recorder
 	Redactor       *forgetting.Redactor
+	Metrics        *telemetry.Metrics
 }
 
 type Server struct {

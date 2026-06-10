@@ -10,6 +10,7 @@ import (
 	"github.com/agent-memory/agent-memory/internal/ports"
 	auditservice "github.com/agent-memory/agent-memory/internal/services/audit"
 	"github.com/agent-memory/agent-memory/internal/services/evaluation"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 type Dependencies struct {
@@ -26,6 +27,8 @@ type Dependencies struct {
 	Recorder *evaluation.Recorder
 	// PrivacyGates enables credential/PII filtering of results.
 	PrivacyGates bool
+	// Metrics, when set, records retrieval latency and context tokens.
+	Metrics *telemetry.Metrics
 }
 
 type Service struct {
@@ -83,6 +86,10 @@ func (s *Service) Retrieve(ctx context.Context, q retrieval.Query) ([]retrieval.
 	}
 
 	trace := s.buildTrace(q, ranked, time.Since(start))
+	if s.deps.Metrics != nil {
+		s.deps.Metrics.Histogram("memory_retrieval_latency_ms").Observe(float64(trace.LatencyMS))
+		s.deps.Metrics.Histogram("memory_context_tokens").Observe(float64(trace.TokenEstimate))
+	}
 	if s.deps.Audit != nil {
 		if err := s.deps.Audit.Save(ctx, trace); err != nil {
 			return nil, retrieval.Trace{}, err

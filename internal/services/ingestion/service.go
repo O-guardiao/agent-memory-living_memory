@@ -8,6 +8,7 @@ import (
 	"github.com/agent-memory/agent-memory/internal/services/consolidation"
 	"github.com/agent-memory/agent-memory/internal/services/distillation"
 	"github.com/agent-memory/agent-memory/internal/services/embedding"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 type Dependencies struct {
@@ -53,7 +54,10 @@ func NewService(deps Dependencies) *Service {
 	return &Service{deps: deps}
 }
 
-func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResponse, error) {
+func (s *Service) Ingest(ctx context.Context, req IngestRequest) (resp IngestResponse, err error) {
+	ctx, endSpan := telemetry.StartSpan(ctx, "ingestion")
+	defer func() { endSpan(err) }()
+
 	now := s.deps.Clock.Now()
 	event := memory.Event{
 		ID:         s.deps.IDGen.NewID("evt"),

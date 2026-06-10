@@ -6,6 +6,7 @@ import (
 
 	"github.com/agent-memory/agent-memory/internal/domain/memory"
 	"github.com/agent-memory/agent-memory/internal/ports"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 type Service struct {
@@ -19,7 +20,10 @@ func NewService(idgen ports.IDGenerator, clock ports.Clock) *Service {
 	return &Service{idgen: idgen, clock: clock}
 }
 
-func (s *Service) Extract(ctx context.Context, event memory.Event) ([]memory.Memory, error) {
+func (s *Service) Extract(ctx context.Context, event memory.Event) (memories []memory.Memory, err error) {
+	ctx, endSpan := telemetry.StartSpan(ctx, "distillation")
+	defer func() { endSpan(err) }()
+
 	text := strings.TrimSpace(event.Content)
 	if text == "" {
 		text = strings.TrimSpace(event.ToolResult)

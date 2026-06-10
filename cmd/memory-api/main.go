@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,10 +13,13 @@ import (
 
 	"github.com/agent-memory/agent-memory/internal/bootstrap"
 	"github.com/agent-memory/agent-memory/internal/config"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 func main() {
 	cfg := config.Load()
+	slog.SetDefault(telemetry.NewLogger(cfg.LogLevel))
+	telemetry.Init(cfg.OTLPEndpoint)
 	app := bootstrap.NewApp(cfg)
 
 	srv := &http.Server{

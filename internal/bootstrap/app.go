@@ -25,6 +25,7 @@ import (
 	"github.com/agent-memory/agent-memory/internal/services/forgetting"
 	"github.com/agent-memory/agent-memory/internal/services/ingestion"
 	retrievalsvc "github.com/agent-memory/agent-memory/internal/services/retrieval"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 type App struct {
@@ -66,6 +67,7 @@ func NewApp(cfg config.Config) *App {
 	if cfg.EvalRecorderEnabled {
 		recorder = evaluation.NewRecorder(0)
 	}
+	metrics := telemetry.NewMetrics()
 
 	ingestSvc := ingestion.NewService(ingestion.Dependencies{
 		Events:       stores.events,
@@ -93,6 +95,7 @@ func NewApp(cfg config.Config) *App {
 		Keywords:     keywords,
 		Recorder:     recorder,
 		PrivacyGates: cfg.PrivacyGatesEnabled,
+		Metrics:      metrics,
 	})
 
 	contextSvc := contextsvc.NewAssemblerWithControl(retrieveSvc, agenticSvc)
@@ -113,6 +116,7 @@ func NewApp(cfg config.Config) *App {
 		Limiter:        limiterFor(cfg),
 		Evaluation:     recorder,
 		Redactor:       redactor,
+		Metrics:        metrics,
 	})
 
 	return &App{HTTPServer: server, Worker: asyncIngestSvc, Shutdown: shutdown}

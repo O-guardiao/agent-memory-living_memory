@@ -7,6 +7,7 @@ import (
 
 	"github.com/agent-memory/agent-memory/internal/domain/retrieval"
 	"github.com/agent-memory/agent-memory/internal/ports"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 func (s *Service) textSearch(ctx context.Context, q retrieval.Query, candidates map[string]retrieval.Candidate) error {
@@ -23,7 +24,10 @@ func (s *Service) textSearch(ctx context.Context, q retrieval.Query, candidates 
 	return nil
 }
 
-func (s *Service) vectorSearch(ctx context.Context, q retrieval.Query, limit int, candidates map[string]retrieval.Candidate) error {
+func (s *Service) vectorSearch(ctx context.Context, q retrieval.Query, limit int, candidates map[string]retrieval.Candidate) (err error) {
+	ctx, endSpan := telemetry.StartSpan(ctx, "vector_search")
+	defer func() { endSpan(err) }()
+
 	vec, err := s.deps.Embedder.Embed(ctx, q.Text)
 	if err != nil {
 		return err

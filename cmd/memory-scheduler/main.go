@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"syscall"
 	"time"
 
@@ -11,11 +12,14 @@ import (
 
 	"github.com/agent-memory/agent-memory/internal/bootstrap"
 	"github.com/agent-memory/agent-memory/internal/config"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 func main() {
 	// Wires retention, reindexing and periodic compaction jobs.
 	cfg := config.Load()
+	slog.SetDefault(telemetry.NewLogger(cfg.LogLevel))
+	telemetry.Init(cfg.OTLPEndpoint)
 	app := bootstrap.NewSchedulerApp(cfg)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

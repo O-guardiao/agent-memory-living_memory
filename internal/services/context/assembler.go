@@ -8,6 +8,7 @@ import (
 	"github.com/agent-memory/agent-memory/internal/domain/retrieval"
 	agenticsvc "github.com/agent-memory/agent-memory/internal/services/agentic"
 	retrievalsvc "github.com/agent-memory/agent-memory/internal/services/retrieval"
+	"github.com/agent-memory/agent-memory/internal/telemetry"
 )
 
 type Assembler struct {
@@ -23,12 +24,15 @@ func NewAssemblerWithControl(retrieval *retrievalsvc.Service, agenticSvc *agenti
 	return &Assembler{retrieval: retrieval, agentic: agenticSvc}
 }
 
-func (a *Assembler) Assemble(ctx context.Context, q retrieval.Query) (retrieval.ContextPack, error) {
+func (a *Assembler) Assemble(ctx context.Context, q retrieval.Query) (pack retrieval.ContextPack, err error) {
+	ctx, endSpan := telemetry.StartSpan(ctx, "context_assembly")
+	defer func() { endSpan(err) }()
+
 	candidates, trace, err := a.retrieval.Retrieve(ctx, q)
 	if err != nil {
 		return retrieval.ContextPack{}, err
 	}
-	pack := retrieval.ContextPack{TraceID: trace.ID, TokenEstimate: trace.TokenEstimate}
+	pack = retrieval.ContextPack{TraceID: trace.ID, TokenEstimate: trace.TokenEstimate}
 	for _, c := range candidates {
 		mem := c.Memory
 		switch mem.Type {

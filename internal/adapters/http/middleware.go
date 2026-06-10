@@ -12,6 +12,9 @@ var errTenantForbidden = errors.New("tenant not allowed for this key")
 func (s *Server) withMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Agent-Memory", "mvp")
+		if s.deps.Metrics != nil {
+			s.deps.Metrics.Counter("http_requests_total").Inc()
+		}
 		next(w, r)
 	})
 	h = middleware.RateLimit(s.deps.Limiter)(h)

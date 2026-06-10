@@ -2,6 +2,10 @@ package httpadapter
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("/healthz", s.handleHealth)
+	if s.deps.Metrics != nil {
+		// Outside the auth chain, like /healthz.
+		s.mux.Handle("/metrics", s.deps.Metrics.Handler())
+	}
 	s.mux.HandleFunc("/v1/events", s.withMiddleware(s.handleEvents))
 	s.mux.HandleFunc("/v1/memories/search", s.withMiddleware(s.handleMemorySearch))
 	s.mux.HandleFunc("/v1/memories", s.withMiddleware(s.handleMemoryList))
