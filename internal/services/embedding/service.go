@@ -2,6 +2,10 @@ package embedding
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"time"
 
 	"github.com/agent-memory/agent-memory/internal/domain/memory"
 	"github.com/agent-memory/agent-memory/internal/ports"
@@ -10,14 +14,50 @@ import (
 type Service struct {
 	embedder ports.Embedder
 	vectors  ports.VectorStore
+	// cache, when set, memoizes embeddings keyed by content hash.
+	cache    ports.Cache
+	cacheTTL time.Duration
 }
 
 func NewService(embedder ports.Embedder, vectors ports.VectorStore) *Service {
 	return &Service{embedder: embedder, vectors: vectors}
 }
 
+// NewServiceWithCache memoizes embeddings in the cache (sha256 of the
+// text) so repeated contents skip the provider round-trip.
+func NewServiceWithCache(embedder ports.Embedder, vectors ports.VectorStore, cache ports.Cache) *Service {
+	return &Service{embedder: embedder, vectors: vectors, cache: cache, cacheTTL: 24 * time.Hour}
+}
+
+func (s *Service) embed(ctx context.Context, text string) ([]float64, error) {
+	if s.cache == nil {
+		return s.embedder.Embed(ctx, text)
+	}
+	key := cacheKey(text)
+	if data, ok, err := s.cache.Get(ctx, key); err == nil && ok {
+		var vec []float64
+		if json.Unmarshal(data, &vec) == nil && len(vec) > 0 {
+			return vec, nil
+		}
+	}
+	vec, err := s.embedder.Embed(ctx, text)
+	if err != nil {
+		return nil, err
+	}
+	if data, err := json.Marshal(vec); err == nil {
+		// Best effort: a cache outage must not fail indexing.
+		_ = s.cache.Set(ctx, key, data, s.cacheTTL)
+	}
+	return vec, nil
+}
+
+func cacheKey(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return "embed:" + hex.EncodeToString(sum[:])
+}
+
 func (s *Service) IndexMemory(ctx context.Context, mem memory.Memory) error {
-	vec, err := s.embedder.Embed(ctx, mem.Content)
+	vec, err := s.embed(ctx, mem.Content)
 	if err != nil {
 		return err
 	}

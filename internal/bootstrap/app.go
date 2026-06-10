@@ -33,6 +33,7 @@ type App struct {
 func NewApp(cfg config.Config) *App {
 	shutdown := NewShutdown()
 	stores := storesFor(cfg, shutdown)
+	stores.queue = queueFor(cfg, stores.queue, shutdown)
 
 	idgen := system.NewIDGenerator()
 	clock := system.RealClock{}
@@ -41,6 +42,9 @@ func NewApp(cfg config.Config) *App {
 
 	distiller := distillerFor(cfg, idgen, clock)
 	embedSvc := embedding.NewService(embedder, stores.vectors)
+	if cache := cacheFor(cfg, shutdown); cache != nil {
+		embedSvc = embedding.NewServiceWithCache(embedder, stores.vectors, cache)
+	}
 	auditSvc := auditservice.NewService(stores.traces, idgen, clock)
 	agenticSvc := agenticsvc.NewService(stores.memories, idgen, clock)
 
