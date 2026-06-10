@@ -140,6 +140,10 @@ class ProposalStore:
             }
         )
         data["provenance"] = provenance
+        # Provenance is part of the content hash; recompute it so the persisted
+        # envelope stays self-consistent and is not flagged as tampered by
+        # verify_integrity().
+        data["content_hash"] = ""
         memory = MemoryEnvelope.from_dict(data)
         memory_id = vault.remember(memory)
         self._review(proposal_id, status="approved", reviewer=reviewer, reason=None, memory_id=memory_id)

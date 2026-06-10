@@ -170,7 +170,7 @@ def lifecycle_for(memory: MemoryEnvelope) -> LifecycleView:
         superseded_by=_optional_str(data.get("superseded_by")),
         valid_from=_optional_float(data.get("valid_from")),
         valid_to=_optional_float(data.get("valid_to")),
-        usage_count=max(0, int(data.get("usage_count") or 0)),
+        usage_count=_optional_int(data.get("usage_count")),
         last_used_at=_optional_float(data.get("last_used_at")),
         importance_delta=_optional_float(data.get("importance_delta")) or 0.0,
         base_importance=memory.importance,
@@ -193,6 +193,18 @@ def _optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _optional_int(value: Any) -> int:
+    if value is None or value == "":
+        return 0
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError):
+            return 0
 
 
 def _optional_str(value: Any) -> str | None:

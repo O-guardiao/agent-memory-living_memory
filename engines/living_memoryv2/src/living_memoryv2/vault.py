@@ -42,6 +42,10 @@ class MemoryBox:
         scope["box_id"] = self.id
         data = memory.to_dict()
         data["scope"] = scope
+        # Scope is part of the content hash; recompute it so the persisted
+        # envelope stays self-consistent and is not flagged as tampered by
+        # verify_integrity().
+        data["content_hash"] = ""
         scoped = MemoryEnvelope.from_dict(data)
         return self.vault.remember(scoped, box_id=self.id)
 

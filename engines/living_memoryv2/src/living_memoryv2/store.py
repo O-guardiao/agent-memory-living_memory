@@ -10,6 +10,12 @@ from typing import Any, Iterator
 from .mobius import MobiusAddress, MobiusIndex
 from .schema import MemoryEnvelope, ModalityRef, content_bytes, stable_json
 
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    return isinstance(value, str) and bool(_SHA256_HEX_RE.match(value))
+
 
 class TemporalStore:
     def __init__(
@@ -281,7 +287,7 @@ class TemporalStore:
                 new_modalities.append(item)
                 continue
             sha = item.sha256 or stable_json(item.content)
-            if len(sha) != 64:
+            if not _is_sha256_hex(sha):
                 import hashlib
 
                 sha = hashlib.sha256(data).hexdigest()
@@ -336,6 +342,11 @@ class TemporalStore:
         return MemoryEnvelope.from_dict(data)
 
     def _blob_path(self, sha: str) -> Path:
+        # Guard against path traversal: blob shas are always lowercase hex
+        # digests, so a crafted uri like blob://../../etc/passwd must not be
+        # allowed to escape the blob directory.
+        if not _is_sha256_hex(sha):
+            raise ValueError("invalid blob reference")
         return self.blob_dir / sha[:2] / sha
 
     def _fts_expression(self, query: str) -> str:
