@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	hashembed "github.com/agent-memory/agent-memory/internal/adapters/embeddings/hash"
 	httpadapter "github.com/agent-memory/agent-memory/internal/adapters/http"
 	memoryqueue "github.com/agent-memory/agent-memory/internal/adapters/queue/memory"
 	postgresqueue "github.com/agent-memory/agent-memory/internal/adapters/queue/postgres"
-	simplerank "github.com/agent-memory/agent-memory/internal/adapters/rerankers/simple"
 	memstorage "github.com/agent-memory/agent-memory/internal/adapters/storage/memory"
 	neo4jstore "github.com/agent-memory/agent-memory/internal/adapters/storage/neo4j"
 	postgresstore "github.com/agent-memory/agent-memory/internal/adapters/storage/postgres"
@@ -20,7 +18,6 @@ import (
 	agenticsvc "github.com/agent-memory/agent-memory/internal/services/agentic"
 	auditservice "github.com/agent-memory/agent-memory/internal/services/audit"
 	contextsvc "github.com/agent-memory/agent-memory/internal/services/context"
-	"github.com/agent-memory/agent-memory/internal/services/distillation"
 	"github.com/agent-memory/agent-memory/internal/services/embedding"
 	"github.com/agent-memory/agent-memory/internal/services/forgetting"
 	"github.com/agent-memory/agent-memory/internal/services/ingestion"
@@ -39,10 +36,10 @@ func NewApp(cfg config.Config) *App {
 
 	idgen := system.NewIDGenerator()
 	clock := system.RealClock{}
-	embedder := hashembed.New(cfg.QdrantVectorSize)
-	reranker := simplerank.New()
+	embedder := embedderFor(cfg)
+	reranker := rerankerFor(cfg)
 
-	distiller := distillation.NewService(idgen, clock)
+	distiller := distillerFor(cfg, idgen, clock)
 	embedSvc := embedding.NewService(embedder, stores.vectors)
 	auditSvc := auditservice.NewService(stores.traces, idgen, clock)
 	agenticSvc := agenticsvc.NewService(stores.memories, idgen, clock)

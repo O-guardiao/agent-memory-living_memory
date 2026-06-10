@@ -1,3 +1,80 @@
 package voyage
 
 // Placeholder for Voyage reranker adapter. Implement ports.Reranker here.
+
+import (
+	"context"
+	"net/http"
+	"strings"
+
+	"github.com/agent-memory/agent-memory/internal/adapters/httpretry"
+	"github.com/agent-memory/agent-memory/internal/domain/retrieval"
+)
+
+const defaultEndpoint = "https://api.voyageai.com"
+
+type Reranker struct {
+	endpoint string
+	apiKey   string
+	model    string
+	client   *http.Client
+}
+
+func New(apiKey, model string, client *http.Client) *Reranker {
+	return NewWithEndpoint(defaultEndpoint, apiKey, model, client)
+}
+
+func NewWithEndpoint(endpoint, apiKey, model string, client *http.Client) *Reranker {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	return &Reranker{
+		endpoint: strings.TrimRight(endpoint, "/"),
+		apiKey:   apiKey,
+		model:    model,
+		client:   client,
+	}
+}
+
+type rerankRequest struct {
+	Model     string   `json:"model"`
+	Query     string   `json:"query"`
+	Documents []string `json:"documents"`
+}
+
+type rerankResponse struct {
+	Data []struct {
+		Index          int     `json:"index"`
+		RelevanceScore float64 `json:"relevance_score"`
+	} `json:"data"`
+}
+
+func (r *Reranker) Rerank(ctx context.Context, query string, candidates []retrieval.Candidate) ([]retrieval.Candidate, error) {
+	if len(candidates) == 0 {
+		return candidates, nil
+	}
+	documents := make([]string, len(candidates))
+	for i, cand := range candidates {
+		documents[i] = cand.Memory.Content
+	}
+	headers := map[string]string{"Authorization": "Bearer " + r.apiKey}
+	var resp rerankResponse
+	err := httpretry.PostJSON(ctx, r.client, r.endpoint+"/v1/rerank", headers, rerankRequest{
+		Model:     r.model,
+		Query:     query,
+		Documents: documents,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range resp.Data {
+		if result.Index < 0 || result.Index >= len(candidates) {
+			continue
+		}
+		cand := &candidates[result.Index]
+		cand.Score = 0.5*cand.Score + 0.5*result.RelevanceScore
+		cand.Reasons = append(cand.Reasons, "voyage_rerank")
+	}
+	retrieval.SortCandidates(candidates)
+	return candidates, nil
+}

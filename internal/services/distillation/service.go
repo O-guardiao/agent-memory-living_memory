@@ -11,6 +11,8 @@ import (
 type Service struct {
 	idgen ports.IDGenerator
 	clock ports.Clock
+	// llm, when set, produces typed candidates with heuristic fallback.
+	llm ports.LLM
 }
 
 func NewService(idgen ports.IDGenerator, clock ports.Clock) *Service {
@@ -18,13 +20,19 @@ func NewService(idgen ports.IDGenerator, clock ports.Clock) *Service {
 }
 
 func (s *Service) Extract(ctx context.Context, event memory.Event) ([]memory.Memory, error) {
-	_ = ctx
 	text := strings.TrimSpace(event.Content)
 	if text == "" {
 		text = strings.TrimSpace(event.ToolResult)
 	}
 	if text == "" {
 		return nil, nil
+	}
+	if s.llm != nil {
+		if memories := s.llmExtract(ctx, event, text); len(memories) > 0 {
+			return memories, nil
+		}
+		// Provider failure or empty output: fall back to the heuristic path
+		// so ingestion never fails because an LLM is down.
 	}
 	now := s.clock.Now()
 	typ := classify(text)
