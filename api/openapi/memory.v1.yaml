@@ -159,6 +159,50 @@ paths:
           schema: { type: string }
       responses:
         '200': { description: Trace }
+  /v1/memories:
+    get:
+      summary: List memories for a tenant/user
+      parameters:
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+        - name: user_id
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200': { description: Memory list }
+  /v1/memories/{memory_id}/redact:
+    post:
+      summary: Redact PII in a memory (partial deletion)
+      parameters:
+        - name: memory_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          schema: { type: string }
+        - name: reason
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Redaction receipt }
+        '404': { description: Memory not found or redaction disabled }
+  /v1/evals/export:
+    get:
+      summary: Export recorded retrievals as JSONL
+      description: Requires MEMORY_EVAL_RECORDER_ENABLED=true; returns 404 otherwise.
+      responses:
+        '200': { description: JSONL stream of retrieval records }
+        '404': { description: Recorder disabled }
+  /metrics:
+    get:
+      summary: Prometheus metrics (outside the auth chain)
+      responses:
+        '200': { description: Prometheus text exposition }
 components:
   schemas:
     EventIngestRequest:

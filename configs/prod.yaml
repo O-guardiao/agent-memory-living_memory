@@ -12,3 +12,20 @@ storage:
   neo4j_basic_auth_env: MEMORY_NEO4J_BASIC_AUTH
 security:
   require_auth: true
+providers:
+  llm_provider_env: MEMORY_LLM_PROVIDER
+  embedding_provider_env: MEMORY_EMBEDDING_PROVIDER
+  reranker_provider_env: MEMORY_RERANKER_PROVIDER
+  queue_provider_env: MEMORY_QUEUE_PROVIDER
+middleware:
+  api_keys_env: MEMORY_API_KEYS
+  rate_limit_rps_env: MEMORY_RATE_LIMIT_RPS
+features:
+  consolidation_env: MEMORY_CONSOLIDATION_ENABLED
+  privacy_gates_env: MEMORY_PRIVACY_GATES_ENABLED
+  eval_recorder_env: MEMORY_EVAL_RECORDER_ENABLED
+infra:
+  redis_addr_env: MEMORY_REDIS_ADDR
+  s3_bucket_env: MEMORY_S3_BUCKET
+  encryption_key_env: MEMORY_ENCRYPTION_KEY
+  otlp_endpoint_env: MEMORY_OTLP_ENDPOINT

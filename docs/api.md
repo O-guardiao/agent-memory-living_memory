@@ -8,6 +8,10 @@ Endpoints principais de memória:
 - `GET /v1/memories/{id}`
 - `DELETE /v1/memories/{id}`
 - `GET /v1/traces/{id}`
+- `GET /v1/memories` (lista por tenant/user)
+- `POST /v1/memories/{id}/redact` (redação de PII, deleção parcial)
+- `GET /v1/evals/export` (JSONL do recorder; requer `MEMORY_EVAL_RECORDER_ENABLED=true`)
+- `GET /metrics` (Prometheus, fora da cadeia de auth)
 
 Endpoints do Agentic Control Plane:
 

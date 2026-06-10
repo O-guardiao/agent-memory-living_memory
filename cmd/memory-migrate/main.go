@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,10 +31,10 @@ func main() {
 		log.Fatalf("open postgres: %v", err)
 	}
 	defer db.Close()
-	if err := waitForPostgres(ctx, db); err != nil {
+	if err := postgres.WaitFor(ctx, db); err != nil {
 		log.Fatalf("wait for postgres: %v", err)
 	}
-	if err := runPostgresMigrations(ctx, db, env("MEMORY_POSTGRES_MIGRATIONS_DIR", "migrations/postgres")); err != nil {
+	if err := postgres.RunMigrations(ctx, db, env("MEMORY_POSTGRES_MIGRATIONS_DIR", "migrations/postgres")); err != nil {
 		log.Fatalf("postgres migrations failed: %v", err)
 	}
 	if cfg.Neo4jEndpoint != "" {
@@ -44,70 +43,6 @@ func main() {
 		}
 	}
 	log.Println("migrations applied")
-}
-
-func waitForPostgres(ctx context.Context, db *sql.DB) error {
-	for {
-		if err := db.PingContext(ctx); err == nil {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second):
-		}
-	}
-}
-
-func runPostgresMigrations(ctx context.Context, db *sql.DB, dir string) error {
-	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
-		version TEXT PRIMARY KEY,
-		applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-	)`); err != nil {
-		return err
-	}
-	files, err := filepath.Glob(filepath.Join(dir, "*.up.sql"))
-	if err != nil {
-		return err
-	}
-	sort.Strings(files)
-	for _, file := range files {
-		version := strings.TrimSuffix(filepath.Base(file), ".up.sql")
-		applied, err := migrationApplied(ctx, db, version)
-		if err != nil {
-			return err
-		}
-		if applied {
-			continue
-		}
-		sqlText, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		tx, err := db.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, string(sqlText)); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("%s: %w", file, err)
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-		log.Printf("applied postgres migration %s", version)
-	}
-	return nil
-}
-
-func migrationApplied(ctx context.Context, db *sql.DB, version string) (bool, error) {
-	var applied bool
-	err := db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&applied)
-	return applied, err
 }
 
 func runNeo4jMigrations(ctx context.Context, cfg config.Config, dir string) error {
