@@ -9,6 +9,7 @@ import (
 	"github.com/agent-memory/agent-memory/internal/domain/retrieval"
 	"github.com/agent-memory/agent-memory/internal/ports"
 	auditservice "github.com/agent-memory/agent-memory/internal/services/audit"
+	"github.com/agent-memory/agent-memory/internal/services/evaluation"
 )
 
 type Dependencies struct {
@@ -19,6 +20,12 @@ type Dependencies struct {
 	Reranker ports.Reranker
 	Audit    *auditservice.Service
 	Clock    ports.Clock
+	// Keywords is an optional lexical channel (wired in memory mode).
+	Keywords ports.KeywordStore
+	// Recorder, when set, captures retrievals for offline replay.
+	Recorder *evaluation.Recorder
+	// PrivacyGates enables credential/PII filtering of results.
+	PrivacyGates bool
 }
 
 type Service struct {
@@ -32,95 +39,45 @@ func (s *Service) Retrieve(ctx context.Context, q retrieval.Query) ([]retrieval.
 	if q.Now.IsZero() {
 		q.Now = s.deps.Clock.Now()
 	}
+	q = ApplyScopeFilters(q)
 	limit := q.NormalizedLimit()
+	plan := Plan(q, s.deps.Graph != nil, s.deps.Keywords != nil)
 
 	candidates := map[string]retrieval.Candidate{}
-
-	textual, err := s.deps.Memories.SearchByText(ctx, q)
-	if err != nil {
-		return nil, retrieval.Trace{}, err
-	}
-	for _, mem := range textual {
-		if !mem.IsActive(q.Now) {
-			continue
-		}
-		candidates[mem.ID] = retrieval.Candidate{Memory: mem, Score: 0.55 + 0.20*mem.Importance, Reasons: []string{"text_search"}, Source: "text"}
-	}
-
-	vec, err := s.deps.Embedder.Embed(ctx, q.Text)
-	if err != nil {
-		return nil, retrieval.Trace{}, err
-	}
-	vres, err := s.deps.Vectors.Search(ctx, ports.VectorQuery{
-		TenantID: q.TenantID,
-		UserID:   q.UserID,
-		Text:     q.Text,
-		Vector:   vec,
-		Limit:    limit * 3,
-		Filters:  q.Filters,
-	})
-	if err != nil {
-		return nil, retrieval.Trace{}, err
-	}
-	for _, result := range vres {
-		mem, err := s.deps.Memories.Get(ctx, q.TenantID, result.ID)
-		if err != nil || !mem.IsActive(q.Now) {
-			continue
-		}
-		score := 0.65*result.Score + 0.20*mem.Importance + 0.15*mem.Confidence
-		existing, ok := candidates[mem.ID]
-		if ok {
-			existing.Score = max(existing.Score, score)
-			existing.Reasons = append(existing.Reasons, "vector_search")
-			existing.Source = "hybrid"
-			candidates[mem.ID] = existing
-		} else {
-			candidates[mem.ID] = retrieval.Candidate{Memory: mem, Score: score, Reasons: []string{"vector_search"}, Source: "vector"}
+	if plan.UseText {
+		if err := s.textSearch(ctx, q, candidates); err != nil {
+			return nil, retrieval.Trace{}, err
 		}
 	}
-	if s.deps.Graph != nil {
-		seedIDs := make([]string, 0, len(candidates))
-		for id := range candidates {
-			seedIDs = append(seedIDs, id)
+	if plan.UseVector {
+		if err := s.vectorSearch(ctx, q, limit, candidates); err != nil {
+			return nil, retrieval.Trace{}, err
 		}
-		for _, seedID := range seedIDs {
-			graphResults, err := s.deps.Graph.Traverse(ctx, ports.GraphQuery{
-				TenantID: q.TenantID,
-				StartID:  seedID,
-				Depth:    2,
-			})
-			if err != nil {
-				return nil, retrieval.Trace{}, err
-			}
-			for _, graphResult := range graphResults {
-				mem, err := s.deps.Memories.Get(ctx, q.TenantID, graphResult.NodeID)
-				if err != nil || !mem.IsActive(q.Now) {
-					continue
-				}
-				score := 0.50 + 0.25*graphResult.Score + 0.15*mem.Importance + 0.10*mem.Confidence
-				existing, ok := candidates[mem.ID]
-				if ok {
-					existing.Score = max(existing.Score, score)
-					existing.Reasons = append(existing.Reasons, "graph_search")
-					existing.Source = "hybrid_graph"
-					candidates[mem.ID] = existing
-				} else {
-					candidates[mem.ID] = retrieval.Candidate{Memory: mem, Score: score, Reasons: []string{"graph_search"}, Source: "graph"}
-				}
-			}
+	}
+	if plan.UseKeyword {
+		if err := s.keywordSearch(ctx, q, candidates); err != nil {
+			return nil, retrieval.Trace{}, err
+		}
+	}
+	if plan.UseGraph {
+		if err := s.graphExpand(ctx, q, plan.GraphDepth, candidates); err != nil {
+			return nil, retrieval.Trace{}, err
 		}
 	}
 
 	ranked := make([]retrieval.Candidate, 0, len(candidates))
 	for _, candidate := range candidates {
+		if !PassesScope(candidate.Memory, q) {
+			continue
+		}
+		if s.deps.PrivacyGates && !PassesPrivacy(candidate.Memory, q) {
+			continue
+		}
 		candidate.Score += recencyBoost(candidate.Memory, q.Now)
 		ranked = append(ranked, candidate)
 	}
 	retrieval.SortCandidates(ranked)
-	ranked, err = s.deps.Reranker.Rerank(ctx, q.Text, ranked)
-	if err != nil {
-		return nil, retrieval.Trace{}, err
-	}
+	ranked = s.rerank(ctx, q, ranked)
 	if len(ranked) > limit {
 		ranked = ranked[:limit]
 	}
@@ -130,6 +87,18 @@ func (s *Service) Retrieve(ctx context.Context, q retrieval.Query) ([]retrieval.
 		if err := s.deps.Audit.Save(ctx, trace); err != nil {
 			return nil, retrieval.Trace{}, err
 		}
+	}
+	if s.deps.Recorder != nil {
+		s.deps.Recorder.Record(evaluation.Record{
+			TraceID:       trace.ID,
+			Query:         q,
+			CandidateIDs:  trace.CandidateIDs,
+			SelectedIDs:   trace.SelectedIDs,
+			Scores:        trace.Scores,
+			LatencyMS:     trace.LatencyMS,
+			TokenEstimate: trace.TokenEstimate,
+			CreatedAt:     trace.CreatedAt,
+		})
 	}
 	return ranked, trace, nil
 }

@@ -17,8 +17,10 @@ import (
 	"github.com/agent-memory/agent-memory/internal/ports"
 	agenticsvc "github.com/agent-memory/agent-memory/internal/services/agentic"
 	auditservice "github.com/agent-memory/agent-memory/internal/services/audit"
+	"github.com/agent-memory/agent-memory/internal/services/consolidation"
 	contextsvc "github.com/agent-memory/agent-memory/internal/services/context"
 	"github.com/agent-memory/agent-memory/internal/services/embedding"
+	"github.com/agent-memory/agent-memory/internal/services/evaluation"
 	"github.com/agent-memory/agent-memory/internal/services/forgetting"
 	"github.com/agent-memory/agent-memory/internal/services/ingestion"
 	retrievalsvc "github.com/agent-memory/agent-memory/internal/services/retrieval"
@@ -47,32 +49,55 @@ func NewApp(cfg config.Config) *App {
 	}
 	auditSvc := auditservice.NewService(stores.traces, idgen, clock)
 	agenticSvc := agenticsvc.NewService(stores.memories, idgen, clock)
+	receipts := auditservice.NewReceiptLog(objectStoreFor(cfg))
+
+	var consolidator *consolidation.Service
+	if cfg.ConsolidationEnabled {
+		consolidator = consolidation.NewService(stores.memories, stores.graph, idgen, clock)
+	}
+	var keywords ports.KeywordStore
+	if cfg.StorageMode != "postgres_qdrant_neo4j" || cfg.PostgresDSN == "" {
+		// Postgres covers lexical search via SearchByText; the dedicated
+		// keyword channel only adds signal in memory mode.
+		keywords = memstorage.NewKeywordStore()
+	}
+	var recorder *evaluation.Recorder
+	if cfg.EvalRecorderEnabled {
+		recorder = evaluation.NewRecorder(0)
+	}
 
 	ingestSvc := ingestion.NewService(ingestion.Dependencies{
-		Events:    stores.events,
-		Memories:  stores.memories,
-		Embedder:  embedder,
-		Vectors:   stores.vectors,
-		Graph:     stores.graph,
-		Distiller: distiller,
-		EmbedSvc:  embedSvc,
-		IDGen:     idgen,
-		Clock:     clock,
+		Events:       stores.events,
+		Memories:     stores.memories,
+		Embedder:     embedder,
+		Vectors:      stores.vectors,
+		Graph:        stores.graph,
+		Distiller:    distiller,
+		EmbedSvc:     embedSvc,
+		IDGen:        idgen,
+		Clock:        clock,
+		Consolidator: consolidator,
+		Keywords:     keywords,
 	})
 	asyncIngestSvc := ingestion.NewAsyncService(stores.queue, ingestSvc)
 
 	retrieveSvc := retrievalsvc.NewService(retrievalsvc.Dependencies{
-		Memories: stores.memories,
-		Vectors:  stores.vectors,
-		Graph:    stores.graph,
-		Embedder: embedder,
-		Reranker: reranker,
-		Audit:    auditSvc,
-		Clock:    clock,
+		Memories:     stores.memories,
+		Vectors:      stores.vectors,
+		Graph:        stores.graph,
+		Embedder:     embedder,
+		Reranker:     reranker,
+		Audit:        auditSvc,
+		Clock:        clock,
+		Keywords:     keywords,
+		Recorder:     recorder,
+		PrivacyGates: cfg.PrivacyGatesEnabled,
 	})
 
 	contextSvc := contextsvc.NewAssemblerWithControl(retrieveSvc, agenticSvc)
-	forgetSvc := forgetting.NewService(stores.memories, stores.vectors, stores.traces, clock)
+	forgetSvc := forgetting.NewService(stores.memories, stores.vectors, stores.traces, clock).
+		WithReceipts(receipts, idgen)
+	redactor := forgetting.NewRedactor(stores.memories, embedSvc, clock)
 
 	server := httpadapter.NewServer(httpadapter.Dependencies{
 		Ingestion:      ingestSvc,
@@ -85,6 +110,8 @@ func NewApp(cfg config.Config) *App {
 		Traces:         stores.traces,
 		Config:         cfg,
 		Limiter:        limiterFor(cfg),
+		Evaluation:     recorder,
+		Redactor:       redactor,
 	})
 
 	return &App{HTTPServer: server, Worker: asyncIngestSvc, Shutdown: shutdown}

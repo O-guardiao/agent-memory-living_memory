@@ -11,6 +11,7 @@ import (
 	"github.com/agent-memory/agent-memory/internal/ports"
 	agenticsvc "github.com/agent-memory/agent-memory/internal/services/agentic"
 	contextsvc "github.com/agent-memory/agent-memory/internal/services/context"
+	"github.com/agent-memory/agent-memory/internal/services/evaluation"
 	"github.com/agent-memory/agent-memory/internal/services/forgetting"
 	"github.com/agent-memory/agent-memory/internal/services/ingestion"
 	retrievalsvc "github.com/agent-memory/agent-memory/internal/services/retrieval"
@@ -27,6 +28,8 @@ type Dependencies struct {
 	Traces         ports.TraceStore
 	Config         config.Config
 	Limiter        middleware.RateLimiter
+	Evaluation     *evaluation.Recorder
+	Redactor       *forgetting.Redactor
 }
 
 type Server struct {

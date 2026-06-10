@@ -13,7 +13,18 @@ type ContextPack struct {
 	RelevantFacts  []memory.Memory         `json:"relevant_facts,omitempty"`
 	Procedures     []memory.Memory         `json:"procedures,omitempty"`
 	Warnings       []string                `json:"warnings,omitempty"`
+	Citations      []Citation              `json:"citations,omitempty"`
 	TokenEstimate  int                     `json:"token_estimate"`
 	TraceID        string                  `json:"trace_id,omitempty"`
 	Control        *agentic.ControlContext `json:"control,omitempty"`
+}
+
+// Citation links a delivered memory back to its source events and the
+// retrieval signals that selected it.
+type Citation struct {
+	MemoryID       string   `json:"memory_id"`
+	SourceEventIDs []string `json:"source_event_ids,omitempty"`
+	Score          float64  `json:"score"`
+	Source         string   `json:"source"`
+	Reasons        []string `json:"reasons,omitempty"`
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/agent-memory/agent-memory/internal/domain/memory"
 	"github.com/agent-memory/agent-memory/internal/ports"
+	"github.com/agent-memory/agent-memory/internal/services/consolidation"
 	"github.com/agent-memory/agent-memory/internal/services/distillation"
 	"github.com/agent-memory/agent-memory/internal/services/embedding"
 )
@@ -19,6 +20,11 @@ type Dependencies struct {
 	EmbedSvc  *embedding.Service
 	IDGen     ports.IDGenerator
 	Clock     ports.Clock
+	// Consolidator, when set, merges/supersedes/links candidates against
+	// existing memories before they are persisted.
+	Consolidator *consolidation.Service
+	// Keywords, when set, receives a lexical index entry per memory.
+	Keywords ports.KeywordStore
 }
 
 type Service struct {
@@ -80,8 +86,22 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResponse
 		if IsDuplicate(created, mem) {
 			continue
 		}
+		if s.deps.Consolidator != nil {
+			result, err := s.deps.Consolidator.Consolidate(ctx, mem)
+			if err != nil {
+				return IngestResponse{}, err
+			}
+			mem = result.Memory
+		}
 		if err := s.deps.Memories.Upsert(ctx, mem); err != nil {
 			return IngestResponse{}, err
+		}
+		if s.deps.Keywords != nil {
+			_ = s.deps.Keywords.Index(ctx, mem.ID, mem.Content, map[string]string{
+				"tenant_id": mem.TenantID,
+				"user_id":   mem.UserID,
+				"type":      string(mem.Type),
+			})
 		}
 		created = append(created, mem)
 	}

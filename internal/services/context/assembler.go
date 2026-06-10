@@ -51,6 +51,10 @@ func (a *Assembler) Assemble(ctx context.Context, q retrieval.Query) (retrieval.
 	if len(candidates) == 0 {
 		pack.Warnings = append(pack.Warnings, "no_relevant_memory_found")
 	}
+	pack.Citations = BuildCitations(candidates)
+	if q.TokenBudget > 0 {
+		EnforceBudget(&pack, candidates, q.TokenBudget)
+	}
 	if a.agentic != nil {
 		control, err := a.agentic.AssembleControlContext(ctx, agentic.ControlRequest{
 			Scope: agentic.Scope{

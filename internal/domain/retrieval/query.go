@@ -13,6 +13,7 @@ type Query struct {
 	SessionID    string            `json:"session_id,omitempty"`
 	Text         string            `json:"query"`
 	Limit        int               `json:"limit,omitempty"`
+	TokenBudget  int               `json:"token_budget,omitempty"`
 	IncludeTrace bool              `json:"include_trace,omitempty"`
 	Now          time.Time         `json:"-"`
 	Filters      map[string]string `json:"filters,omitempty"`
