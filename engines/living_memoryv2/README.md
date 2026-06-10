@@ -52,10 +52,35 @@ All modules live under `src/living_memoryv2/`:
 
 ```bash
 python scripts/run_mcp_server.py
+# or, after `pip install -e .`:
+living-memory-mcp
 ```
 
 The facade registers tools such as `living_memory`, `remember_text`,
 `recall_context`, `inspect_memory`, `query_graph`, and `add_relation`.
+
+Environment variables:
+
+- `LIVING_MEMORY_ROOT` — storage root for the vault (default
+  `.living_memory_vault`; keep it out of git).
+- `LIVING_MEMORY_COMPACT_TOOLS=1` — compact tool descriptors, reducing
+  the tokens each MCP session spends on tool schemas.
+
+### Using with Claude Code
+
+Register the engine as persistent memory so sessions recall context
+instead of re-reading files:
+
+```bash
+claude mcp add living-memory \
+  --env LIVING_MEMORY_ROOT="$HOME/.living_memory_vault" \
+  --env LIVING_MEMORY_COMPACT_TOOLS=1 \
+  -- python3 /path/to/engines/living_memoryv2/scripts/run_mcp_server.py
+```
+
+Typical loop: `remember_text` / `remember_markdown` to capture durable
+facts and decisions, `recall_context` or `recall_sif` at session start,
+`fact_status` to check what is already known before re-deriving it.
 
 ## Benchmarks
 

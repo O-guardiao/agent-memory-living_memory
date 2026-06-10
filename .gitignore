@@ -1,6 +1,7 @@
 .env
 .env.*
-.env.example
+# The example file holds placeholders only and is safe to publish.
+!.env.example
 
 .living_memory_vault/
 memory_vault/

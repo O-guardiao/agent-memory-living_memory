@@ -1921,17 +1921,22 @@ class MCPServer:
 
 def run_stdio() -> None:
     server = MCPServer(LivingMemoryTools())
-    for line in sys.stdin:
-        if not line.strip():
-            continue
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError as exc:
-            write_message(error_response(None, -32700, f"parse error: {exc}"))
-            continue
-        reply = server.handle(message)
-        if reply is not None:
-            write_message(reply)
+    try:
+        for line in sys.stdin:
+            if not line.strip():
+                continue
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError as exc:
+                write_message(error_response(None, -32700, f"parse error: {exc}"))
+                continue
+            reply = server.handle(message)
+            if reply is not None:
+                write_message(reply)
+    except (KeyboardInterrupt, BrokenPipeError):
+        # Host closed the session (Ctrl+C or stdout gone): exit cleanly
+        # instead of dumping a traceback into the MCP transport.
+        return
 
 
 def write_message(message: JsonDict) -> None:
